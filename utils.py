@@ -1,4 +1,13 @@
-def readFile(fileName):
+import _config
+import os
+
+inputFileFolder = _config.inputFileFolder
+save = _config.save
+printf = _config.printf
+printFplus = _config.printFplus
+
+
+def preprocess(fileName):
     # read file
     with open(fileName, 'r') as f:
         data = f.read()
@@ -13,19 +22,24 @@ def readFile(fileName):
     for i, j in enumerate(data_split):
         # data_split[i] = j.replace(' ', '')
         data_split[i] = ''.join(j.split())
+
+    return data_split
+
+
+def readFile(fileName):
+
+    data = preprocess(fileName)
     
     # seperate attributes and FDs
     FDs = []
     attributes = []
-    for element in data_split:
+    for element in data:
         if '->' in element:
             FDs.append(element)
         else:
             attributes.append(element)
-    
-    attributes_split = list(attributes[0])
 
-    return FDs, attributes_split
+    return FDs, attributes
 
 
 def seperateFDs(FDs):
@@ -69,7 +83,8 @@ def addFD(f, add_attr):
 
 def calculateFplus(fileName):
 
-    FDs, attrs = readFile(fileName)
+    FDs, attributes = readFile(fileName)
+    attrs = list(attributes[0])
     
     lhs, rhs = seperateFDs(FDs)
 
@@ -102,8 +117,26 @@ def calculateFplus(fileName):
         Fplus.append(f)
     #end for
 
+    multiAttr = []
+    for element in lhs:
+        if element not in attrs:
+            multiAttr.append(element)
+
+    multiFplus = []
+    for attr_list in multiAttr:
+        f = attr_list
+        consider = list(attr_list)
+        consider.extend(list(rhs[lhs.index(attr_list)]))
+
+        for attr in consider:
+            f_to_add = Fplus[attrs.index(attr)]
+            f, _ = addFD(f, f_to_add)
+        
+        multiFplus.append(f)
+
     relation = ''.join(attrs)
-    return Fplus, relation
+
+    return Fplus, relation, multiFplus, multiAttr
             
 
 def check(Fs, relation, special = None):
@@ -162,11 +195,11 @@ def update(Fplus, relation, sub_relation):
 
 def calculateBCNF(fileName):
 
-    Fplus, relation = calculateFplus(fileName)
+    Fplus, relation, _, _ = calculateFplus(fileName)
 
     check_list = check(Fplus, relation)
     if sum(check_list) == 0:
-        # print("The table is already in BCNF! No need to break down!")
+
         return list([relation])
     
     # flag stores tables that need to be broke
@@ -218,12 +251,98 @@ def calculateBCNF(fileName):
     return solutions
 
 
-def printSol(file):
-    FDs, attrs = readFile(file)
+def solve(file, printInfo):
+
+    FDs, attributes = readFile(file)
+    attrs = list(attributes[0])
+    
     sols = calculateBCNF(file)
 
-    print("Processing file: %s" % file[file.rfind('/')+1:])
-    print("R = (%s)." % (" ".join(attrs)))
-    print("The functional dependencies are %s.\n" % (", ".join(FDs)))
-    print("Decomposing R into tables in BCNF...")
-    print("Result:\n%s\n\n" % (" // ".join(sols)))
+    printf = printInfo[0]
+    printFplus = printInfo[1]
+    if printf:
+        print("================================================================\n")
+        print("Processing file: %s" % file[file.rfind('/')+1:])
+        print("R = (%s)." % (" ".join(attrs)))
+        print("The functional dependencies are %s." % (", ".join(FDs)))
+
+        if printFplus:
+            showFplus(file)
+
+        if len(sols) == 1:
+            print("\nR is already in BCNF! No need to break down!\n")
+        else:
+            print("\nDecomposing R into tables in BCNF...")
+            print("Result:\n%s\n" % (" // ".join(sols)))
+
+    return sols
+
+
+def saveSol(file, sols):
+    # save file
+    with open("./output/" + file, 'w') as f:
+        f.write(" // ".join(sols))
+
+    print("Successfully saved solutions to '%s'!\n" % file)
+
+
+def showFplus(file):
+
+    Fplus, relation, multiFplus, multiAttr = calculateFplus(file)
+
+    Fplus.extend(multiFplus)
+    attrs = list(relation)
+    attrs.extend(multiAttr)
+    
+    print("\nF+:")
+    for i, attr in enumerate(attrs):
+        print("%s -> %s" % (attr, Fplus[i]))
+
+
+def checkFile(fileName):
+
+    if fileName[-4:] != '.txt':
+        print("Nonvalid input '%s': not a txt file!" % fileName)
+        os._exit(0)
+
+    FDs, attributes = readFile(inputFileFolder + fileName)
+    # check wether to have FD or not
+    if len(FDs) == 0:
+        print("Nonvalid input '%s': no FDs found!" % fileName)
+        os._exit(0)
+    # check wether number of relation definition is 1 
+    elif len(attributes) != 1:
+        print("Nonvalid input '%s': definition error in relation!" % fileName)
+        os._exit(0)
+
+    leftHS, rightHS = seperateFDs(FDs)
+    # check wether both LHS & RHS have attribute defined like '->bc' or 'a->'
+    if '' in leftHS or '' in rightHS:
+        print("Nonvalid input '%s': definition error in FD!" % fileName)
+        os._exit(0)  
+
+    # check wether have unkown attribute or character defined in FD like 'a->b@c'
+    for fd in FDs:
+        fd = fd.replace('->', '', 1)
+        for i in list(fd):
+            if i not in list(attributes[0]):
+                print("Nonvalid input '%s': unkown attribute '%s'!" % (fileName, i))
+                os._exit(0)
+
+    check_list = leftHS + rightHS
+    # check wether have repetition attributes defined in a single FD like 'a->bcc'
+    for item in check_list:
+        item_list = list(item)
+        for i in item_list:
+            if item_list.count(i) != 1:
+                print("Nonvalid input '%s': definition error in '%s'!" % (fileName, item))
+                os._exit(0)
+        
+
+def BCNF(file):
+
+    fileName = inputFileFolder + file
+    sols = solve(fileName, [printf, printFplus])
+    if save:
+        saveFileName = "Sol_" + file
+        saveSol(saveFileName, sols)
