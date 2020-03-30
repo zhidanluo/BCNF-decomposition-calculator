@@ -29,7 +29,8 @@ if not specify:
         if file != '.DS_Store':
             checkFile(file)
     for file in sorted(os.listdir(inputFileFolder)):
-        BCNF(file)
+        if file != '.DS_Store':
+            BCNF(file)
 else:
     file = specify
     if not os.path.exists(inputFileFolder+file):
