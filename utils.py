@@ -1,10 +1,5 @@
-import _config
+from _config import inputFileFolder, save, printf, printFplus
 import os
-
-inputFileFolder = _config.inputFileFolder
-save = _config.save
-printf = _config.printf
-printFplus = _config.printFplus
 
 
 def preprocess(fileName):
@@ -122,6 +117,7 @@ def calculateFplus(fileName):
         if element not in attrs:
             multiAttr.append(element)
 
+    multiAttr = list(set(multiAttr))
     multiFplus = []
     for attr_list in multiAttr:
         f = attr_list
@@ -310,9 +306,15 @@ def checkFile(fileName):
     if len(FDs) == 0:
         print("Nonvalid input '%s': no FDs found!" % fileName)
         os._exit(0)
+
     # check wether number of relation definition is 1 
-    elif len(attributes) != 1:
+    if len(attributes) != 1:
         print("Nonvalid input '%s': definition error in relation!" % fileName)
+        os._exit(0)
+
+    # check wether have repetition attributes defined in relation like "abca"
+    if len(list(attributes[0])) != len(list(set(list(attributes[0])))):
+        print("Nonvalid input '%s': definition repetition in relation '%s'!" % (fileName, attributes[0]))
         os._exit(0)
 
     leftHS, rightHS = seperateFDs(FDs)
