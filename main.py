@@ -1,9 +1,7 @@
 from utils import BCNF, checkFile
+from _config import inputFileFolder, specify
 import os
-import _config
 
-inputFileFolder = _config.inputFileFolder
-specify = _config.specify
 
 # make input folder
 if not os.path.exists(inputFileFolder):
